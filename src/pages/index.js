@@ -1,37 +1,54 @@
-'use client'
-import React, { useEffect, useState } from 'react'
+"use client";
+import { useEffect, useState } from "react";
+import { io } from "socket.io-client";
 
-const index = () => {
-  const [userdata, setUserData] = useState('');
+let socket;
+
+export default function LiveChat() {
+  const [text, setText] = useState("");
+  const [messages, setMessages] = useState([]);
+
   useEffect(() => {
-    async function getUser(params) {
-      try {
-        const res = await fetch('/api/data', {
-          method: 'GET'
-        });
-        const data = await res.json();
-        setUserData(data.message);
-      } catch (error) {
-        console.log(error);
-      }
-    }
-    getUser();
+    fetch("/api/socket"); // socket initialize
+
+    socket = io({ path: "/api/socket_io" });
+
+    socket.on("newMessage", (msg) => {
+      setMessages((prev) => [msg, ...prev]);
+    });
+
+    return () => socket.disconnect();
   }, []);
 
-  return (
-    <div className='w-full h-screen flex gap-y-5 flex-col items-center justify-center bg-green-700 text-5xl font-semibold'>
-      <h1>Hello Nahid</h1>
-      {
-        userdata ? userdata.map((elem, index) => {
-          return (
-            <div className='flex flex-col items-start' key={elem._id}>
-              <h1>{index+'.' + elem.divisionName}</h1>
-            </div>
-          )
-        }) : <p>Loading.....</p>
-      }
-    </div>
-  )
-}
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await fetch("/api/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    setText("");
+  };
 
-export default index
+  return (
+    <div className="p-6 space-y-4">
+      <form onSubmit={handleSubmit}>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="border px-4 py-2 rounded"
+          placeholder="Type your message..."
+        />
+        <button className="ml-2 px-4 py-2 bg-pink-500 text-white rounded">Send</button>
+      </form>
+
+      <div className="space-y-2">
+        {messages.map((msg, i) => (
+          <div key={i} className="bg-gray-100 px-4 py-2 rounded shadow">
+            {msg.text} <span className="text-xs text-gray-500">({msg.time})</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
